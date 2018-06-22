@@ -1,5 +1,5 @@
 *********************************************************************************
-#Getting Started
+# Getting Started
 
 Download the above repository and copy contents of folders "admin" and "catalog" inside your opencart setup. If you are on linux, you can use below commands:
 
@@ -21,11 +21,11 @@ Download the above repository and copy contents of folders "admin" and "catalog"
 
  Refer screenshots for a more detailed view.
 
-##Found a bug?
+## Found a bug?
 
 Report it at [https://github.com/cashfree/cashfree_opencart_kit/issues](https://github.com/cashfree/cashfree_opencart_kit/issues)
 
-#Support
+# Support
 
 For further queries, reach us at techsupport@gocashfree.com .
 
