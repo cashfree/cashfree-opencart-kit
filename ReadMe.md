@@ -1,17 +1,32 @@
-===========
-a) Copy contents of folders "admin" and "catalog" inside your opencart setup. If you are on linux, you can use below commands:
+*********************************************************************************
+#Getting Started
 
-        shell> rsync -a /<path_to_current_directory>/upload/admin/ /<path_to_opencart_setup>/admin/
-        shell> rsync -a /<path_to_current_direcrtory>/upload/catalog/ /<path_to_opencart_setup>/catalog/
+Download the above repository and copy contents of folders "admin" and "catalog" inside your opencart setup. If you are on linux, you can use below commands:
 
-b) Go to your opencart admin console
+```
+  
+  rsync -a /<path_to_current_directory>/upload/admin/ /<path_to_opencart_setup>/admin/
+  rsync -a /<path_to_current_direcrtory>/upload/catalog /<path_to_opencart_setup>/catalog/
 
-c) Click on Extensions link, present on left-hand side naviation
+ ```
+- Go to your opencart admin console
 
-d) Choose Payments from the drop down
+- Click on Extensions link, present on left-hand side naviation
 
-e) Go to "Cashfree" row and click on "plus" sign to install it
+- Choose Payments from the drop down
 
-f) Once installed, click on edit icon to provide the configuration values
+- Go to "Cashfree" row and click on "plus" sign to install it
 
- Refer screenshots 
+- Once installed, click on edit icon to provide the configuration values
+
+ Refer screenshots for a more detailed view.
+
+##Found a bug?
+
+Report it at [https://github.com/cashfree/cashfree_opencart_kit/issues](https://github.com/cashfree/cashfree_opencart_kit/issues)
+
+#Support
+
+For further queries, reach us at techsupport@gocashfree.com .
+
+********************************************************************************** 
