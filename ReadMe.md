@@ -21,6 +21,11 @@ Download the above repository and copy contents of folders "admin" and "catalog"
 
  Refer screenshots for a more detailed view.
 
+ ### Development
+
+- The `[master](https://github.com/cashfree/cashfree-opencart-kit)` branch holds the plugin for OpenCart 3
+- The `[opencart-2.x](https://github.com/cashfree/cashfree-opencart-kit/tree/opencart-2.x)` branch holds the plugin for Opencart 2
+
 ## Found a bug?
 
 Report it at [https://github.com/cashfree/cashfree_opencart_kit/issues](https://github.com/cashfree/cashfree_opencart_kit/issues)
