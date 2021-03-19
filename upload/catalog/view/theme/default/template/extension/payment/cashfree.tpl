@@ -1,7 +1,7 @@
 <div class="buttons">
   <div class="pull-right">
-    <input type="button" value="{{ button_confirm }}" id="button-confirm" class="btn btn-primary" data-loading-text="{{ text_loading }}" />
-    <h4 class="text-success hidden" id="text-redirect">{{ text_redirect }}</h4>
+    <input type="button" value="<?php echo $button_confirm; ?>" id="button-confirm" class="btn btn-primary" data-loading-text="<?php echo $text_loading; ?>" />
+    <h4 class="text-success hidden" id="text-redirect"><?php echo $text_redirect; ?></h4>
 </div>
 <script type="text/javascript"><!--
 $('#button-confirm').on('click', function() {
