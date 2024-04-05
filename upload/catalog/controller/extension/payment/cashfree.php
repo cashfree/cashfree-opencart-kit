@@ -60,15 +60,16 @@ class ControllerExtensionPaymentCashFree extends Controller
 
             if (isset($get_order_response['payment_session_id'])) {
                 if ($get_order_response['order_status'] == 'ACTIVE'
-                    && round($get_order_response['total'], 2) == round($order_info['total'], 2)
+                    && round($get_order_response['order_amount'], 2) == round($order_info['total'], 2)
                     && $get_order_response['order_currency'] == $order_info['currency_code']) {
                     $response['payment_session_id'] = $get_order_response['payment_session_id'];
                     $response["status"] = 1;
                     $response["environment"] = $this->environment;
+                    $response["message"] = "Order get created successfully";
                 } else {
                     $response["status"] = 0;
+                    $response["message"] = "There is something wrong with order creation. Please do reach out to support";
                 }
-                $response["message"] = $get_order_response['message'];
             } else {
                 $cf_request = array();
                 $customer_details["customer_id"] = "121212";
@@ -90,10 +91,11 @@ class ControllerExtensionPaymentCashFree extends Controller
                     $response['payment_session_id'] = $create_order_response['payment_session_id'];
                     $response["status"] = 1;
                     $response["environment"] = $this->environment;
+                    $response["message"] = "Order get created successfully";
                 } else {
                     $response["status"] = 0;
+                    $response["message"] = $create_order_response['message'];
                 }
-                $response["message"] = $create_order_response['message'];
             }
         }
         $this->response->addHeader('Content-Type: application/json');
