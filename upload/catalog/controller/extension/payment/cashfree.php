@@ -1,27 +1,46 @@
 <?php
 
 class ControllerExtensionPaymentCashFree extends Controller
-{    
+{
+    const CASHFREE_SANDBOX_API_ENDPOINT = 'https://sandbox.cashfree.com/pg/';
+    const CASHFREE_SANDBOX_ENVIRONMENT = 'sandbox';
+    const CASHFREE_PRODUCTION_API_ENDPOINT = 'https://api.cashfree.com/pg/';
+    const CASHFREE_PRODUCTION_ENVIRONMENT = 'production';
+    const CASHFREE_API_VERSION = '2023-08-01';
+
     /**
      * Initiate checkout page
      *
      * @return void
      */
+
+    public function __construct($registry)
+    {
+        parent::__construct($registry);
+        $this->app_id = trim($this->config->get('cashfree_app_id'));
+        $this->secret_key = trim($this->config->get('cashfree_secret_key'));
+        $this->api_endpoint = self::CASHFREE_PRODUCTION_API_ENDPOINT;
+        $this->environment = self::CASHFREE_PRODUCTION_ENVIRONMENT;
+        if ($this->config->get('cashfree_sandbox') == '1') {
+            $this->api_endpoint = self::CASHFREE_SANDBOX_API_ENDPOINT;
+            $this->environment = self::CASHFREE_SANDBOX_ENVIRONMENT;
+        }
+    }
+
     public function index()
     {
         $this->language->load('extension/payment/cashfree');
         $data['button_confirm'] = $this->language->get('button_confirm');
         $data['text_loading'] = $this->language->get('text_loading');
         $data['text_redirect'] = $this->language->get('text_redirect');
-
         $this->session->data['order_id'];
-        if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/extension/payment/cashfree.tpl')) {
-            return $this->load->view($this->config->get('config_template') . '/extension/payment/cashfree.tpl', $data);
+        if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/extension/payment/cashfree')) {
+            return $this->load->view($this->config->get('config_template') . '/template/extension/payment/cashfree', $data);
         } else {
-            return $this->load->view('/extension/payment/cashfree.tpl', $data);
+            return $this->load->view('/extension/payment/cashfree', $data);
         }
     }
-    
+
     /**
      * Redirect to payment page for executing checkout page
      *
@@ -29,192 +48,162 @@ class ControllerExtensionPaymentCashFree extends Controller
      */
     public function confirm()
     {
+        $response["status"] = 0;
+        $response["message"] = "You have not selected cashfree payment gateway. Please reach out to customer support";
+
         if ($this->session->data['payment_method']['code'] == 'cashfree') {
             $this->language->load('extension/payment/cashfree');
 
-            $appId = $this->config->get('cashfree_app_id');
-            $secretKey = $this->config->get('cashfree_secret_key');
-
             $this->load->model('checkout/order');
             $order_info = $this->model_checkout_order->getOrder($this->session->data['order_id']);
+            $get_order_response = $this->getOrder($this->session->data['order_id']);
 
-            $cf_request = array();
-            $cf_request["appId"] = $appId;
-            $cf_request["secretKey"] = $secretKey;
-            $cf_request["orderId"] = $this->session->data['order_id'];
-            $cf_request["orderAmount"] = round($order_info['total'], 2);
-            $cf_request["orderCurrency"] = $order_info['currency_code'];
-            $cf_request["orderNote"] = $order_info['store_name'] . " - #" . $cf_request["orderId"];
-            $cf_request["customerPhone"] = $order_info['telephone'];
-            $cf_request["customerName"] = html_entity_decode($order_info['payment_firstname'] . ' ' . $order_info['payment_lastname'], ENT_QUOTES, 'UTF-8');
-            $cf_request["customerEmail"] = $order_info['email'];
-            $cf_request["returnUrl"] = $this->url->link('extension/payment/cashfree/thankyou', '', 'SSL');
-            $cf_request["notifyUrl"] = $this->url->link('extension/payment/cashfree/callback', '', 'SSL');
-            $cf_request["source"] = "opencart";
-
-            $jsonResponse = $this->getOrderLink($appId, $secretKey, $this->session->data['order_id']);
-            if ($jsonResponse->{'status'} == "OK") {
-                $response["status"] = 1;
-                $response["redirect"] = $jsonResponse->{"paymentLink"};
-            }
-            else
-            {
-                $jsonResponse = $this->createOrder($cf_request);
-                if ($jsonResponse->{'status'} == "OK") 
-                {
+            if (isset($get_order_response['payment_session_id'])) {
+                if ($get_order_response['order_status'] == 'ACTIVE'
+                    && round($get_order_response['order_amount'], 2) == round($order_info['total'], 2)
+                    && $get_order_response['order_currency'] == $order_info['currency_code']) {
+                    $response['payment_session_id'] = $get_order_response['payment_session_id'];
                     $response["status"] = 1;
-                    $response["redirect"] = $jsonResponse->{"paymentLink"};
-    
-                }
-                else
-                {
+                    $response["environment"] = $this->environment;
+                    $response["message"] = "Order get created successfully";
+                } else {
                     $response["status"] = 0;
-                    $response["message"] = $this->language->get('cashfree_api_error') . $jsonResponse->{"reason"};
+                    $response["message"] = "There is something wrong with order creation. Please do reach out to support";
+                }
+            } else {
+                $cf_request = array();
+                $customer_details["customer_id"] = "121212";
+                $customer_details["customer_email"] = $order_info['email'];
+                $customer_details["customer_phone"] = $order_info['telephone'];
+                $customer_details["customer_name"] = html_entity_decode($order_info['payment_firstname'] . ' ' . $order_info['payment_lastname'], ENT_QUOTES, 'UTF-8');
+                $cf_request["customer_details"] = $customer_details;
+                $order_meta["return_url"] = $this->url->link('extension/payment/cashfree/thankyou&order_id={order_id}', '', 'SSL');
+                $order_meta["notify_url"] = $this->url->link('extension/payment/cashfree/callback', '', 'SSL');
+                $cf_request["order_meta"] = $order_meta;
+                $cf_request["order_id"] = (string)$this->session->data['order_id'];
+                $cf_request["order_note"] = $order_info['store_name'] . " - #" . $cf_request["order_id"];
+                $cf_request["order_amount"] = round($order_info['total'], 2);
+                $cf_request["order_currency"] = $order_info['currency_code'];
+
+                $create_order_response = $this->createOrder($cf_request);
+
+                if (isset($create_order_response['payment_session_id'])) {
+                    $response['payment_session_id'] = $create_order_response['payment_session_id'];
+                    $response["status"] = 1;
+                    $response["environment"] = $this->environment;
+                    $response["message"] = "Order get created successfully";
+                } else {
+                    $response["status"] = 0;
+                    $response["message"] = $create_order_response['message'];
                 }
             }
-            
-            $this->response->addHeader('Content-Type: application/json');
-            $this->response->setOutput(json_encode($response));
         }
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($response));
     }
-    
+
     /**
      * Create order using cashfree order api's
      *
-     * @param  mixed $cf_request
+     * @param mixed $cf_request
      * @return void
      */
     public function createOrder($cf_request)
     {
-        $apiEndpoint = trim($this->config->get('cashfree_api_url'));
-        $timeout = 10;
+        $url = $this->api_endpoint . "orders";
+        $data_string = json_encode($cf_request);
 
-        $request_string = "";
-        foreach ($cf_request as $key => $value) {
-            $request_string .= $key . '=' . rawurlencode($value) . '&';
-        }
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'accept: application/json',
+            'content-type: application/json',
+            'x-api-version: ' . self::CASHFREE_API_VERSION,
+            'x-client-id: ' . $this->app_id,
+            'x-client-secret: ' . $this->secret_key
+        ));
 
-        $apiEndpoint = rtrim($apiEndpoint, "/");
-        $apiEndpoint = $apiEndpoint . "/api/v1/order/create";
+        $response = curl_exec($ch);
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "$apiEndpoint?");
-        curl_setopt($ch, CURLOPT_POST, count($cf_request));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $request_string);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-        $curl_result = curl_exec($ch);
         curl_close($ch);
 
-        $jsonResponse = json_decode($curl_result);
-        return $jsonResponse;
+        return json_decode($response, true);
     }
-    
+
     /**
      * If order is already generate with same order id then get payment links
      *
-     * @param  mixed $appId
-     * @param  mixed $secretKey
-     * @param  mixed $orderId
-     * @return void
+     * @param mixed $order_id
+     * @return bool|string
      */
-    public function getOrderLink($appId, $secretKey, $orderId)
+    public function getOrder($order_id)
     {
-        $url = trim($this->config->get('cashfree_api_url'));
-        $url = rtrim($url, "/");
-        $url = $url . "/api/v1/order/info/link";
+        $url = $this->api_endpoint . "orders/" . $order_id;
+        $headers = [
+            'accept: application/json',
+            'x-api-version: ' . self::CASHFREE_API_VERSION,
+            'x-client-id: ' . $this->app_id,
+            'x-client-secret: ' . $this->secret_key
+        ];
 
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_POSTFIELDS => "appId=$appId&secretKey=$secretKey&orderId=$orderId",
-            CURLOPT_HTTPHEADER => array(
-                "cache-control: no-cache",
-                "content-type: application/x-www-form-urlencoded",
-            ),
-        ));
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $err = curl_error($curl);
-        $curl_result = curl_exec($curl);
+        $response = curl_exec($ch);
 
-        curl_close($curl);
-        $jsonResponse = json_decode($curl_result);
-        return $jsonResponse;
+        curl_close($ch);
+
+        return json_decode($response, true);
     }
-    
+
     /**
      * Process payment on client after cashfree response
      *
-     * @param  mixed $data
-     * @return void
+     * @param mixed $post_response
+     * @return array
      */
-    private function processResponse($data)
+    private function processResponse($post_response, $order_info)
     {
-        $secretKey = $this->config->get('cashfree_secret_key');
         $this->load->model('checkout/order');
         $this->language->load('extension/payment/cashfree');
 
-        $order_info = $this->model_checkout_order->getOrder($data["orderId"]);
-
-        if ($order_info) {
-            $signature = $data["signature"];
-
-            $postData = "{$data['orderId']}{$data['orderAmount']}{$data['referenceId']}{$data['txStatus']}{$data['paymentMode']}{$data['txMsg']}{$data['txTime']}";
-            $hash_hmac = hash_hmac('sha256', $postData, $secretKey, true);
-            $computedSignature = base64_encode($hash_hmac);
-            if ($signature != $computedSignature) {
-                $this->model_checkout_order->addOrderHistory($data['orderId'], 10, $data["txMsg"] . ' Signature missmatch! Check Cashfree dashboard for details of Reference Id:' . $data['referenceId']);
-                $redirectUrl = $this->url->link('checkout/failure', '', true);
-                return array("status" => 0, "message" => $this->language->get('cashfree_payment_failed'), "redirectUrl" => $redirectUrl);
+        if ($post_response["status"] == 'SUCCESS') {
+            if ($order_info["order_status_id"] != $this->config->get('cashfree_order_status_id')) {
+                // only updated if it has been updated it
+                $this->model_checkout_order->addOrderHistory($post_response['order_id'], $this->config->get('cashfree_order_status_id'), $post_response["message"]);
             }
-
-            if ($data["txStatus"] == 'SUCCESS') {
-                if ($order_info["order_status_id"] != $this->config->get('cashfree_order_status_id')) { 
-                    // only updated if it has been updated it
-                    $this->model_checkout_order->addOrderHistory($data['orderId'], $this->config->get('cashfree_order_status_id'), "Payment Received", true);
-                }
-                return array("status" => 1);
-            } else if ($data["txStatus"] == "CANCELLED") {
-                $this->model_checkout_order->addOrderHistory($data['orderId'], 7, $data["txMsg"] . ' Payment Cancelled! Check Cashfree dashboard for details of Reference Id:' . $data['referenceId']);
-                $redirectUrl = $this->url->link('checkout/checkout', '', true);
-                return array("status" => 0, "message" => $this->language->get('cashfree_payment_cancelled'), "redirectUrl" => $redirectUrl);
-            } else {
-                $this->model_checkout_order->addOrderHistory($data['orderId'], 10, $data["txMsg"] . ' Payment Failed! Check Cashfree dashboard for details of Reference Id:' . $data['referenceId']);
-                $redirectUrl = $this->url->link('checkout/failure', '', true);
-                return array("status" => 0, "message" => $this->language->get('cashfree_payment_failed'), "redirectUrl" => $redirectUrl);
-            }
-
+            return array("status" => 1);
+        } else if ($post_response["status"] == "CANCELLED") {
+            $this->model_checkout_order->addOrderHistory($post_response['order_id'], 7, $post_response["message"] . ' Payment Cancelled! Check Cashfree dashboard for details of Reference Id:' . $post_response['transaction_id']);
+            $redirect_url = $this->url->link('checkout/checkout', '', true);
+            return array("status" => 0, "message" => $this->language->get('cashfree_payment_cancelled'), "redirect_url" => $redirect_url);
+        } else {
+            $this->model_checkout_order->addOrderHistory($post_response['order_id'], 10, $post_response["message"] . ' Payment Failed! Check Cashfree dashboard for details of Reference Id:' . $post_response['transaction_id']);
+            $redirect_url = $this->url->link('checkout/failure', '', true);
+            return array("status" => 0, "message" => $this->language->get('cashfree_payment_failed'), "redirect_url" => $redirect_url);
         }
-        return array("status" => 0, "message" => "");
     }
-    
+
     /**
-     * Redirect to thank you page after process payment on client
-     *
      * @return void
      */
     public function thankyou()
     {
-        if (!isset($this->request->post["orderId"])) {
+        $this->load->model('checkout/order');
+        $this->language->load('extension/payment/cashfree');
+        if (!isset($_REQUEST["order_id"])) {
             $this->response->redirect($this->url->link('checkout/failure'));
         }
 
-        $response = $this->processResponse($this->request->post);
+        $order_id = $_REQUEST["order_id"];
 
-        if ($response["status"] == 1) {
-            $this->response->redirect($this->url->link('checkout/success', '', true));
-        } else {
-            $this->session->data['error_warning'] = $response["message"];
-            $this->response->redirect($response['redirectUrl']);
-        }
+        return $this->cashfree_payment_response($order_id);
     }
-    
+
     /**
      * Checking for notify url
      *
@@ -222,12 +211,86 @@ class ControllerExtensionPaymentCashFree extends Controller
      */
     public function callback()
     {
-        if (!isset($this->request->post["orderId"])) {
+        if (!isset($_POST["orderId"])) {
             die();
         }
-        sleep(20);
-        $response = $this->processResponse($this->request->post);
+        sleep(30);
+        $response = $this->cashfree_payment_response($_POST["orderId"]);
         die();
         //do nothing
+    }
+
+    /**
+     * @param $order_id
+     * @return void
+     */
+    public function cashfree_payment_response($order_id)
+    {
+        $this->load->model('checkout/order');
+        $this->language->load('extension/payment/cashfree');
+
+        $order_info = $this->model_checkout_order->getOrder($order_id);
+
+        if ($order_info) {
+            $url = $this->api_endpoint . "orders/" . $order_id . "/payments";
+            $headers = [
+                'accept: application/json',
+                'x-api-version: ' . self::CASHFREE_API_VERSION,
+                'x-client-id: ' . $this->app_id,
+                'x-client-secret: ' . $this->secret_key
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $response = curl_exec($ch);
+
+            $get_payments = json_decode($response, true);
+
+            if (is_array($get_payments) && isset($get_payments[0]) && is_array($get_payments[0]) && isset($get_payments[0]['payment_status']) && $get_payments[0]['payment_status'] === 'SUCCESS') {
+                $payments = $get_payments[0];
+                if ((number_format($payments['order_amount'], 2) == number_format($order_info['total'], 2)) && ($payments['payment_currency'] == $order_info['currency_code'])) {
+                    $post_response['status'] = $payments['payment_status'];
+                    $post_response['order_id'] = $order_id;
+                    $post_response['message'] = $payments['payment_message'];
+                    $post_response['transaction_id'] = $payments['cf_payment_id'];
+                    $response = $this->processResponse($post_response, $order_info);
+                } else {
+                    $post_response['status'] = "FAILED";
+                    $post_response['order_id'] = $order_id;
+                    $post_response['message'] = "Payment failed. Signature Mismatched";
+                    $post_response['transaction_id'] = $payments['cf_payment_id'];
+                    $response = $this->processResponse($post_response, $order_info);
+                }
+            } else {
+                if (is_array($get_payments) && isset($get_payments[0]) && is_array($get_payments[0]) && isset($get_payments[0]['payment_status'])) {
+                    $payments = $get_payments[0];
+                    $post_response['status'] = $payments['payment_status'];
+                    $post_response['order_id'] = $order_id;
+                    $post_response['message'] = $payments['payment_message'];
+                    $post_response['transaction_id'] = $payments['cf_payment_id'];
+                    $response = $this->processResponse($post_response, $order_info);
+                } else {
+                    $post_response['status'] = "FAILED";
+                    $post_response['order_id'] = $order_id;
+                    $post_response['message'] = "Transaction not found for this order";
+                    $post_response['transaction_id'] = "";
+                    $response = $this->processResponse($post_response, $order_info);
+                }
+            }
+
+            if ($response["status"] == 1) {
+                $this->response->redirect($this->url->link('checkout/success', '', true));
+            } else {
+                $this->session->data['error_warning'] = $response["message"];
+                $this->response->redirect($response['redirect_url']);
+            }
+
+        } else {
+            $redirect_url = $this->url->link('checkout/failure', '', true);
+            $this->response->redirect($redirect_url);
+        }
     }
 }
