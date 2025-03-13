@@ -1,0 +1,87 @@
+<div class="text-end">
+    <!-- Confirm Payment Button -->
+    <button type="button" id="button-confirm" class="btn btn-primary" data-loading-text="{{ text_loading }}">
+        {{ button_confirm }}
+    </button>
+    <!-- Hidden redirect message -->
+    <h4 class="text-success d-none mt-2" id="text-redirect">{{ text_redirect }}</h4>
+</div>
+
+<!-- Cashfree Payment SDK -->
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#button-confirm').on('click', function () {
+            var element = this;
+
+            $.ajax({
+                type: 'GET',
+                dataType: "json",
+                url: 'index.php?route=extension/opencart/payment/cashfree.confirm&language={{ language }}',
+                cache: false,
+                beforeSend: function () {
+                    $(element).button('loading');
+                },
+                complete: function () {
+                    $(element).button('reset');
+                },
+                success: function (response) {
+                    console.log("Response received:", response);
+
+                    // Function to handle callback and redirection
+                    function callCallbackAndRedirect(callbackUrl) {
+                        fetch(callbackUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.redirect_url) {
+                                location.href = data.redirect_url;
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error calling callback:", error);
+                        });
+                    }
+
+                    // If payment is successful
+                    if (response.status === 1) {
+                        $(element).hide();
+                        $('#text-redirect').removeClass("d-none"); // Show redirect message
+
+                        // Initialize Cashfree SDK
+                        const cashfree = Cashfree({ mode: response.environment });
+
+                        // Configure checkout options
+                        let checkoutOptions = {
+                            paymentSessionId: response.payment_session_id,
+                            redirectTarget: "_modal",
+                            platformName: "oc"
+                        };
+
+                        // Trigger Cashfree checkout
+                        cashfree.checkout(checkoutOptions).then((result) => {
+                            if (result.error || result.redirect || result.paymentDetails) {
+                                console.log("Payment process completed");
+                                if (response.callback_url) {
+                                    callCallbackAndRedirect(response.callback_url);
+                                }
+                            }
+                        });
+                    } 
+                    // If payment fails
+                    else {
+                        alert(response.message);
+                        if (response.callback_url) {
+                            callCallbackAndRedirect(response.callback_url);
+                        } else {
+                            location.href = response.redirect_failure;
+                        }
+                    }
+                }
+            });
+        });
+    });
+</script>

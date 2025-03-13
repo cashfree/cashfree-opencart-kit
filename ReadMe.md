@@ -4,11 +4,20 @@
 Download the above repository and copy contents of folders "admin" and "catalog" inside your opencart setup. If you are on linux, you can use below commands:
 
 ```
-  
+
   rsync -a /<path_to_current_directory>/upload/admin/ /<path_to_opencart_setup>/admin/
   rsync -a /<path_to_current_direcrtory>/upload/catalog /<path_to_opencart_setup>/catalog/
 
  ```
+
+ for opencart 4.x:
+ Download the above repository and copy contents of "extension" containing "admin" and "catalog" folders to your opencart setup "extension" folder. If you are on linux, you can use below commands:
+
+ ```
+  rsync -a /<path_to_current_directory>/upload/extension/ /<path_to_opencart_setup>/extension/
+ ```
+
+
 - Go to your opencart admin console
 
 - Click on Extensions link, present on left-hand side naviation
