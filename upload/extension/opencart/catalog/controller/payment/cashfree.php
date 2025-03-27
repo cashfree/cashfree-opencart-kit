@@ -56,7 +56,7 @@ class Cashfree extends \Opencart\System\Engine\Controller
             
             // Check if the order exists
             if (isset($get_order_response['payment_session_id'])) {
-                if (($get_order_response['order_status'] == 'ACTIVE') && round($get_order_response['order_amount'], 2) == round($order_info['total'], 2) && $get_order_response['order_currency'] == $order_info['currency_code']) {
+                if (($get_order_response['order_status'] == 'ACTIVE') && round($get_order_response['order_amount'], 2) == round($order_info['total']*$order_info['currency_value'], 2) && $get_order_response['order_currency'] == $order_info['currency_code']) {
                     $response['payment_session_id'] = $get_order_response['payment_session_id'];
                     $response["status"] = 1;
                     $response["environment"] = $this->environment;
@@ -118,7 +118,7 @@ class Cashfree extends \Opencart\System\Engine\Controller
                 "notify_url" => $this->url->link('extension/opencart/payment/cashfree.callback', '', true)
             ],
             "order_id" => (string)$cf_order_id,
-            "order_amount" => round($order_info['total'], 2),
+            "order_amount" => round($order_info['total']*$order_info['currency_value'], 2),
             "order_currency" => $order_info['currency_code']
         ];
     }
@@ -297,7 +297,7 @@ class Cashfree extends \Opencart\System\Engine\Controller
 
         if (is_array($get_payments) && isset($get_payments[0]) && is_array($get_payments[0]) && isset($get_payments[0]['payment_status']) && $get_payments[0]['payment_status'] === 'SUCCESS') {
             $payments = $get_payments[0];
-            if ((number_format($payments['order_amount'], 2) == number_format($order_info['total'], 2)) && ($payments['payment_currency'] == $order_info['currency_code'])) {
+            if ((number_format($payments['order_amount'], 2) == number_format($order_info['total']*$order_info['currency_value'], 2)) && ($payments['payment_currency'] == $order_info['currency_code'])) {
                 $post_response['status'] = $payments['payment_status'];
                 $post_response['order_id'] = $order_id;
                 $post_response['message'] = $payments['payment_message'];
