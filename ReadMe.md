@@ -36,6 +36,9 @@ Download the above repository and copy contents of folders "admin" and "catalog"
 - The [opencart-3.x](https://github.com/cashfree/cashfree-opencart-kit/releases/download/v2.0.0/opencart_version_3.x.zip) branch holds the plugin for OpenCart 3
 - The [opencart-2.x](https://github.com/cashfree/cashfree-opencart-kit/releases/download/v2.0.0/opencart_version_2.x.zip) branch holds the plugin for Opencart 2
 
+### Opencart OCMOD Installer
+- The [cashfree.opencart.zip](https://www.opencart.com/index.php?route=marketplace/extension/info&member_token=13d942b0072c2aa8568863b61f47ffbb&extension_id=47316&filter_search=cashfree) supports provided 3.X.X and 4.X.X
+
 ## Found a bug?
 
 Report it at [https://github.com/cashfree/cashfree_opencart_kit/issues](https://github.com/cashfree/cashfree_opencart_kit/issues)
